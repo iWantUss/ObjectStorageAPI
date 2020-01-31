@@ -1,0 +1,4 @@
+rootProject.name = 'YandexLazyObjectStorageAPI'
+
+
+enableFeaturePreview('GRADLE_METADATA')
