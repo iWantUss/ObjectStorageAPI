@@ -1,18 +1,20 @@
 package storage
 
 import components.Component
-import components.Info
+import components.DefaultInfo
+import components.StateInfo
+import components.memory.MemoryDefaultInfo
 import storage.cloud.YandexObjectStorage
 import storage.cloud.YandexObjectStorageConfig
 import storage.local.LocalStorage
 
-class ComponentsStorage(storageConfig: StorageConfig = StorageConfig()) : Storage {
-    private val componentsStorage = HashMap<String, Info>()
+class ComponentsStorage(private val storageConfig: StorageConfig = StorageConfig()) : Storage {
+    private val componentsStorage = HashMap<String, MemoryDefaultInfo>()
 
     val yandexObjectStorage = YandexObjectStorage(storageConfig.backet, storageConfig.yandexConfig)
     val localStorage = LocalStorage(storageConfig.basePathLocalHost)
 
-    override fun pull(key: String): Component? {
+    override fun pull(key: String): Component {
         val info = componentsStorage[key]
         if (info != null) {
             return Component(key, componentsStorage[key]!!)
@@ -20,20 +22,24 @@ class ComponentsStorage(storageConfig: StorageConfig = StorageConfig()) : Storag
 
         val localComponent = localStorage.pull(key)
         if (localComponent != null) {
-            componentsStorage[key] = localComponent.info
+            componentsStorage[key] = MemoryDefaultInfo(localComponent.info)
             return Component(key, componentsStorage[key]!!)
         }
 
-        val yandexComponent = yandexObjectStorage.pull(key) ?: return null
+        val yandexComponent = yandexObjectStorage.pull(key) ?: return Component(key, MemoryDefaultInfo(DefaultInfo(), true))
         localStorage.push(yandexComponent)
-        componentsStorage[key] = yandexComponent.info
+        componentsStorage[key] = MemoryDefaultInfo(yandexComponent.info)
         return Component(key, componentsStorage[key]!!)
     }
 
     override fun push(component: Component) {
-        componentsStorage[component.key] = component.info
-        localStorage.push(component)
-        yandexObjectStorage.push(component)
+        val stateInfo = component.info as StateInfo
+        if (!stateInfo.isSync()) {
+            localStorage.push(component)
+            yandexObjectStorage.push(component)
+            stateInfo.sync()
+        }
+        componentsStorage[component.key] = MemoryDefaultInfo(component.info)
     }
 
     override fun delete(component: Component) {
