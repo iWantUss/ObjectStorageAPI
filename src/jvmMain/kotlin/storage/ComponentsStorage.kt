@@ -14,17 +14,19 @@ class ComponentsStorage(storageConfig: StorageConfig = StorageConfig()) : Storag
 
     override fun pull(key: String): Component? {
         val info = componentsStorage[key]
-        if (info == null) {
-            val localComponent = localStorage.pull(key)
-            if (localComponent == null) {
-                val yandexComponent = yandexObjectStorage.pull(key) ?: return null
-                localStorage.push(yandexComponent)
-                componentsStorage[key] = yandexComponent.info
-                return Component(key, componentsStorage[key]!!)
-            }
+        if (info != null) {
+            return Component(key, componentsStorage[key]!!)
+        }
+
+        val localComponent = localStorage.pull(key)
+        if (localComponent != null) {
             componentsStorage[key] = localComponent.info
             return Component(key, componentsStorage[key]!!)
         }
+
+        val yandexComponent = yandexObjectStorage.pull(key) ?: return null
+        localStorage.push(yandexComponent)
+        componentsStorage[key] = yandexComponent.info
         return Component(key, componentsStorage[key]!!)
     }
 
